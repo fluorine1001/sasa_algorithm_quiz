@@ -97,9 +97,18 @@ function drawProblems() {
     }
 }
 
-// 4. 화면 출력 함수
+// 4. 화면 출력 함수 (배지 디자인 및 난이도 색상 적용)
 function renderProblems(problems) {
+    // 텍스트 변환
     const diffText = { 1: '하', 2: '중', 3: '상' };
+    
+    // 색상 변환 (Tailwind 클래스 묶음)
+    const diffColor = {
+        1: 'bg-green-100 text-green-800', // 하 (초록색)
+        2: 'bg-yellow-100 text-yellow-800', // 중 (노란색)
+        3: 'bg-red-100 text-red-800'  // 상 (빨간색)
+    };
+
     resultContainer.innerHTML = ''; // 기존 화면 초기화
 
     problems.forEach((problem, index) => {
@@ -113,12 +122,10 @@ function renderProblems(problems) {
         
         // 카드 내부 HTML
         card.innerHTML = `
-            <div class="flex justify-between items-center mb-3">
-                <div class="flex items-center gap-2">
-                    <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded">${sectionText}</span>
-                    <span class="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded border border-gray-200">${problem.name}</span>
-                </div>
-                <span class="text-sm font-medium text-gray-500 whitespace-nowrap">난이도: ${problem.difficulty} (${diffText[problem.difficulty]})</span>
+            <div class="flex items-center gap-2 mb-3">
+                <span class="bg-blue-100 text-blue-800 text-xs font-bold px-2.5 py-0.5 rounded">${sectionText}</span>
+                <span class="bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-0.5 rounded border border-gray-200">${problem.name}</span>
+                <span class="${diffColor[problem.difficulty]} text-xs font-bold px-2.5 py-0.5 rounded">${diffText[problem.difficulty]}</span>
             </div>
             <h3 class="text-lg font-bold text-gray-800 mb-2 truncate" title="${problem.title}">
                 ${index + 1}. ${problem.title}
