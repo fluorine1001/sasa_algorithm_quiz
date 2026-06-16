@@ -2,20 +2,20 @@
 // ★ 시스템 핵심 설정 영역 (확률형 멀티 시나리오)
 // =====================================================================
 
-// 각 모드를 선택했을 때 실행될 난이도 비율 시나리오들을 정의합니다.
-// weight(확률 가중치)에 따라 매번 다른 시나리오가 선택되어 난이도 비율이 일정하지 않고 유동적으로 바뀝니다.
+// 각 모드별 난이도 구성 시나리오
 const LEVEL_SCENARIOS = {
     'low': [
         { weight: 55, ratio: { 1: 70, 2: 30, 3: 0 } },   // 하 중심 (55% 확률)
-        { weight: 45, ratio: { 1: 50, 2: 35, 3: 15 } }   // 상/중이 적극적으로 섞임 (45% 확률 -> '상' 등장 보장)
+        { weight: 45, ratio: { 1: 50, 2: 35, 3: 15 } }   // 상/중이 적극적으로 섞임 (45% 확률)
     ],
     'mid': [
         { weight: 50, ratio: { 1: 25, 2: 55, 3: 20 } },   // 하가 살짝 더 많은 중간 (50% 확률)
         { weight: 50, ratio: { 1: 20, 2: 55, 3: 25 } }   // 상이 살짝 더 많은 중간 (50% 확률)
     ],
     'high': [
-        { weight: 55, ratio: { 1: 0, 2: 30, 3: 70 } },   // 상 중심 (55% 확률)
-        { weight: 45, ratio: { 1: 15, 2: 35, 3: 50 } }   // 하/중이 적극적으로 섞임 (45% 확률 -> '하' 등장 보장)
+        { weight: 30, ratio: { 1: 0, 2: 30, 3: 70 } },   // [조정] 순수 매운맛 - 상/중 위주 (30%로 축소)
+        { weight: 50, ratio: { 1: 15, 2: 35, 3: 50 } },  // [신규] 하가 확실히 끼어드는 매운맛 (50% 확률)
+        { weight: 20, ratio: { 1: 20, 2: 20, 3: 60 } }   // [신규] 상의 비중이 매우 높지만 하도 함께 등장 (20% 확률)
     ]
 };
 
@@ -89,7 +89,7 @@ function getRandomScenario(level) {
 // 문제 셋 생성 로직
 function drawProblems() {
     const selectedSection = sectionFilter.value;
-    const targetLevel = difficultyFilter.value; // 'all', 'low', 'mid', 'high'
+    const targetLevel = difficultyFilter.value; 
     const targetCount = parseInt(countFilter.value, 10) || 6;
 
     // 1차 분반 필터링
@@ -107,14 +107,20 @@ function drawProblems() {
         return;
     }
 
-    // [요구사항 반영 3] '전체' 선택 시 내부적으로 low/mid/high 중 하나를 완전히 무작위로 선택
+    // '전체' 선택 시 내부 선택 확률 조절 (high의 비중 낮춤)
     let activeLevel = targetLevel;
     if (activeLevel === 'all') {
-        const levels = ['low', 'mid', 'high'];
-        activeLevel = levels[Math.floor(Math.random() * levels.length)];
+        const rand = Math.random() * 100;
+        if (rand < 40) {
+            activeLevel = 'low';   
+        } else if (rand < 85) {
+            activeLevel = 'mid';   
+        } else {
+            activeLevel = 'high';  
+        }
     }
 
-    // 이번 회차에 적용할 난이도 비율 시나리오 확정 (비율 비일정화 요구사항 만족)
+    // 적용할 난이도 비율 시나리오 확정
     const targetRatio = getRandomScenario(activeLevel);
 
     let bestSet = [];
@@ -128,7 +134,7 @@ function drawProblems() {
         const actualCounts = { 1: 0, 2: 0, 3: 0 };
         candidateSet.forEach(p => actualCounts[p.difficulty]++);
         
-        // 정밀 정량 패널티 계산 (목표하는 이상적인 난이도별 개수와의 오차 비교)
+        // 정밀 정량 패널티 계산
         let currentPenalty = 0;
         [1, 2, 3].forEach(d => {
             const idealCount = targetCount * (targetRatio[d] / 100);
@@ -145,7 +151,7 @@ function drawProblems() {
     const finalShuffledSet = shuffleArray(bestSet);
     renderProblems(finalShuffledSet);
     
-    // [요구사항 반영 2] '전체 포함' -> '전체' 기준으로 노출 문구 대응
+    // 워딩 수정 반영 ('전체')
     if (targetLevel === 'all') {
         messageArea.textContent = `${targetCount}개의 문제가 랜덤 추출되었습니다.`;
     } else {
