@@ -1,19 +1,29 @@
 // =====================================================================
-// ★ 사용자 설정 영역
+// ★ 시스템 핵심 설정 영역 (자유롭게 조정 가능)
 // =====================================================================
 
-// 1. 난이도별 계산 점수 (가중치 폭을 넓혀 섞일 확률을 자연스럽게 만듦)
+// 1. 난이도별 점수 가중치 (하=10점, 중=25점, 상=50점)
 const DIFFICULTY_WEIGHTS = {
     1: 10,  // 하
     2: 25,  // 중
     3: 50   // 상
 };
 
-// 2. low, mid, high 각각의 목표 평균 점수 설정
-const TARGET_AVERAGES = {
-    'low':  19,  // 하 위주지만 중/상이 섞임 (예: 하4, 중1, 상1 평균 = 19.1)
-    'mid':  28,  // 고르게 섞이거나 중 위주 (예: 하2, 중2, 상2 평균 = 28.3)
-    'high': 38   // 상 위주지만 하/중이 섞임 (예: 하1, 중1, 상4 평균 = 39.1)
+// 2. 모드별 목표 설정 (목표 가중 평균 및 하/중/상 황금 비율 %)
+// 비율(ratio)의 총합은 반드시 100이어야 합니다.
+const SYSTEM_CONFIGS = {
+    'low': {
+        targetAvg: 18.0, // 목표 평균 점수
+        ratio: { 1: 60, 2: 30, 3: 10 } // 하 60% : 중 30% : 상 10% (상이 낮은 비율로 등장)
+    },
+    'mid': {
+        targetAvg: 27.5, // 목표 평균 점수
+        ratio: { 1: 20, 2: 60, 3: 20 } // 하 20% : 중 60% : 상 20% (중 중심, 하/상 고루 분포)
+    },
+    'high': {
+        targetAvg: 39.5, // 목표 평균 점수
+        ratio: { 1: 10, 2: 30, 3: 60 } // 하 10% : 중 30% : 상 60% (하가 낮은 비율로 등장)
+    }
 };
 
 // =====================================================================
@@ -41,7 +51,7 @@ async function fetchProblems() {
     }
 }
 
-// 무작위 섞기
+// 무작위 섞기 (Fisher-Yates)
 function shuffleArray(array) {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -51,7 +61,7 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 중복 없는 제작자로만 문제 후보 세트를 구성하는 함수
+// 제작자 중복 없는 후보 세트 생성 생성 함수
 function getUniqueCreatorCandidate(problems, targetCount) {
     const groups = {};
     problems.forEach(p => {
@@ -64,29 +74,26 @@ function getUniqueCreatorCandidate(problems, targetCount) {
     
     const selectedCreators = shuffleArray(creators).slice(0, targetCount);
     
-    const candidateSet = selectedCreators.map(creator => {
+    return selectedCreators.map(creator => {
         const creatorProblems = groups[creator];
-        const randomIndex = Math.floor(Math.random() * creatorProblems.length);
-        return creatorProblems[randomIndex];
+        return creatorProblems[Math.floor(Math.random() * creatorProblems.length)];
     });
-    
-    return candidateSet;
 }
 
-// 문제 추출 로직
+// 문제 셋 생성 로직 (하이브리드 페널티 시스템)
 function drawProblems() {
     const selectedSection = sectionFilter.value;
     const targetLevel = difficultyFilter.value;
     const targetCount = parseInt(countFilter.value, 10) || 6;
 
-    // 1차 필터링 (분반)
+    // 1차 분반 필터링
     const filteredBySection = allProblems.filter(problem => {
         return selectedSection === 'all' || 
                problem.section === Number(selectedSection) || 
                problem.section === 0;
     });
 
-    // 중복 없는 제작자 검사 (방어 로직)
+    // 방어 로직
     const uniqueCreatorsCount = new Set(filteredBySection.map(p => p.name)).size;
     if (uniqueCreatorsCount < targetCount) {
         resultContainer.innerHTML = '';
@@ -99,35 +106,51 @@ function drawProblems() {
     if (targetLevel === 'all') {
         bestSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
     } else {
-        const targetAvg = TARGET_AVERAGES[targetLevel];
-        let closestDifference = Infinity;
-        const MAX_ATTEMPTS = 300; 
+        const config = SYSTEM_CONFIGS[targetLevel];
+        let lowestPenalty = Infinity;
+        
+        // 정밀한 다중 조건 매칭을 위해 시뮬레이션 횟수를 500회로 상향
+        const MAX_ATTEMPTS = 500; 
 
         for (let i = 0; i < MAX_ATTEMPTS; i++) {
             const candidateSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
             if (!candidateSet) break;
             
-            const currentSum = candidateSet.reduce((sum, p) => sum + DIFFICULTY_WEIGHTS[p.difficulty], 0);
-            const currentAvg = currentSum / targetCount;
+            // 1. 실제 개수 및 가중 평균 점수 계산
+            const actualCounts = { 1: 0, 2: 0, 3: 0 };
+            let totalScore = 0;
+            candidateSet.forEach(p => {
+                actualCounts[p.difficulty]++;
+                totalScore += DIFFICULTY_WEIGHTS[p.difficulty];
+            });
+            const actualAvg = totalScore / targetCount;
             
-            const diff = Math.abs(currentAvg - targetAvg);
+            // 2. 가중 평균 점수 오차 (낮을수록 좋음)
+            const avgDiff = Math.abs(actualAvg - config.targetAvg);
 
-            if (diff < closestDifference) {
-                closestDifference = diff;
+            // 3. 목표 난이도 분포 오차 계산 (특정 난이도가 실종되는 현상 방지)
+            let distributionDiff = 0;
+            [1, 2, 3].forEach(d => {
+                const idealCount = targetCount * (config.ratio[d] / 100);
+                distributionDiff += Math.abs(actualCounts[d] - idealCount);
+            });
+
+            // 4. 최종 하이브리드 페널티 점수 합산 
+            // 분포도 오차에 가중치(x10)를 부여하여 모든 난이도가 자연스럽게 섞이도록 유도
+            const currentPenalty = avgDiff + (distributionDiff * 10);
+
+            if (currentPenalty < lowestPenalty) {
+                lowestPenalty = currentPenalty;
                 bestSet = candidateSet;
             }
-
-            if (diff <= 0.05) break; 
         }
     }
 
-    // 최종 순서 무작위 섞기
+    // 최종 출력 순서 무작위 정렬
     const finalShuffledSet = shuffleArray(bestSet);
-
-    // 결과 렌더링
     renderProblems(finalShuffledSet);
     
-    // [수정] 안내 메시지 간소화
+    // 간결한 문구 출력 요구사항 반영
     if (targetLevel === 'all') {
         messageArea.textContent = `${targetCount}개의 문제가 랜덤 추출되었습니다.`;
     } else {
@@ -135,7 +158,7 @@ function drawProblems() {
     }
 }
 
-// 화면 출력 함수
+// 컴팩트 화면 출력 함수
 function renderProblems(problems) {
     const diffText = { 1: '하', 2: '중', 3: '상' };
     const diffColor = {
@@ -164,7 +187,7 @@ function renderProblems(problems) {
                 ${index + 1}. ${problem.title}
             </h3>
             <p class="text-blue-500 text-xs font-medium mt-1 group-hover:underline flex items-center">
-                문제 확인하기
+                문제 확인하기 
                 <svg class="w-3 h-3 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path></svg>
             </p>
         `;
