@@ -1,29 +1,20 @@
 // =====================================================================
-// ★ 시스템 핵심 설정 영역 (자유롭게 조정 가능)
+// ★ 시스템 핵심 설정 영역
 // =====================================================================
 
-// 1. 난이도별 점수 가중치 (하=10점, 중=25점, 상=50점)
+// 1. 난이도별 점수 가중치 
 const DIFFICULTY_WEIGHTS = {
     1: 10,  // 하
     2: 25,  // 중
     3: 50   // 상
 };
 
-// 2. 모드별 목표 설정 (목표 가중 평균 및 하/중/상 황금 비율 %)
-// 비율(ratio)의 총합은 반드시 100이어야 합니다.
+// 2. 모드별 목표 평균 점수 '범위' 
+// 고정된 평균이 아닌 범위 내에서 랜덤 지정되어, 매번 비율이 유동적으로 변합니다.
 const SYSTEM_CONFIGS = {
-    'low': {
-        targetAvg: 18.0, // 목표 평균 점수
-        ratio: { 1: 60, 2: 30, 3: 10 } // 하 60% : 중 30% : 상 10% (상이 낮은 비율로 등장)
-    },
-    'mid': {
-        targetAvg: 27.5, // 목표 평균 점수
-        ratio: { 1: 20, 2: 60, 3: 20 } // 하 20% : 중 60% : 상 20% (중 중심, 하/상 고루 분포)
-    },
-    'high': {
-        targetAvg: 39.5, // 목표 평균 점수
-        ratio: { 1: 10, 2: 30, 3: 60 } // 하 10% : 중 30% : 상 60% (하가 낮은 비율로 등장)
-    }
+    'low':  { minAvg: 17, maxAvg: 22 }, 
+    'mid':  { minAvg: 25, maxAvg: 30 }, 
+    'high': { minAvg: 35, maxAvg: 40 }  
 };
 
 // =====================================================================
@@ -51,7 +42,7 @@ async function fetchProblems() {
     }
 }
 
-// 무작위 섞기 (Fisher-Yates)
+// 무작위 섞기 
 function shuffleArray(array) {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -61,7 +52,7 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 제작자 중복 없는 후보 세트 생성 생성 함수
+// 제작자 중복 없는 후보 세트 생성
 function getUniqueCreatorCandidate(problems, targetCount) {
     const groups = {};
     problems.forEach(p => {
@@ -80,7 +71,7 @@ function getUniqueCreatorCandidate(problems, targetCount) {
     });
 }
 
-// 문제 셋 생성 로직 (하이브리드 페널티 시스템)
+// 문제 셋 생성 로직
 function drawProblems() {
     const selectedSection = sectionFilter.value;
     const targetLevel = difficultyFilter.value;
@@ -93,7 +84,7 @@ function drawProblems() {
                problem.section === 0;
     });
 
-    // 방어 로직
+    // 방어 로직 (제작자 수 부족)
     const uniqueCreatorsCount = new Set(filteredBySection.map(p => p.name)).size;
     if (uniqueCreatorsCount < targetCount) {
         resultContainer.innerHTML = '';
@@ -101,48 +92,46 @@ function drawProblems() {
         return;
     }
 
+    // [신규] 랜덤 모드일 경우 low, mid, high 중 하나를 무작위로 선택하여 진행
+    let activeLevel = targetLevel;
+    if (activeLevel === 'all') {
+        const levels = ['low', 'mid', 'high'];
+        activeLevel = levels[Math.floor(Math.random() * levels.length)];
+    }
+
+    // 범위 내에서 이번 회차의 목표 평균 점수를 랜덤으로 결정 (매번 비율이 달라지도록 유도)
+    const config = SYSTEM_CONFIGS[activeLevel];
+    const targetAvg = Math.random() * (config.maxAvg - config.minAvg) + config.minAvg;
+
     let bestSet = [];
-    
-    if (targetLevel === 'all') {
-        bestSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
-    } else {
-        const config = SYSTEM_CONFIGS[targetLevel];
-        let lowestPenalty = Infinity;
+    let lowestPenalty = Infinity;
+    const MAX_ATTEMPTS = 500; 
+
+    for (let i = 0; i < MAX_ATTEMPTS; i++) {
+        const candidateSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
+        if (!candidateSet) break;
         
-        // 정밀한 다중 조건 매칭을 위해 시뮬레이션 횟수를 500회로 상향
-        const MAX_ATTEMPTS = 500; 
+        const actualCounts = { 1: 0, 2: 0, 3: 0 };
+        let totalScore = 0;
+        candidateSet.forEach(p => {
+            actualCounts[p.difficulty]++;
+            totalScore += DIFFICULTY_WEIGHTS[p.difficulty];
+        });
+        const actualAvg = totalScore / targetCount;
+        
+        // 1. 점수 오차 페널티
+        const avgDiff = Math.abs(actualAvg - targetAvg);
 
-        for (let i = 0; i < MAX_ATTEMPTS; i++) {
-            const candidateSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
-            if (!candidateSet) break;
-            
-            // 1. 실제 개수 및 가중 평균 점수 계산
-            const actualCounts = { 1: 0, 2: 0, 3: 0 };
-            let totalScore = 0;
-            candidateSet.forEach(p => {
-                actualCounts[p.difficulty]++;
-                totalScore += DIFFICULTY_WEIGHTS[p.difficulty];
-            });
-            const actualAvg = totalScore / targetCount;
-            
-            // 2. 가중 평균 점수 오차 (낮을수록 좋음)
-            const avgDiff = Math.abs(actualAvg - config.targetAvg);
+        // 2. 다양성 페널티 (특정 난이도가 0개일 경우 강한 페널티를 주어 '하, 중, 상'이 모두 섞이도록 강제)
+        const missingCount = [1, 2, 3].filter(d => actualCounts[d] === 0).length;
+        const diversityPenalty = targetCount >= 3 ? (missingCount * 10) : 0; 
 
-            // 3. 목표 난이도 분포 오차 계산 (특정 난이도가 실종되는 현상 방지)
-            let distributionDiff = 0;
-            [1, 2, 3].forEach(d => {
-                const idealCount = targetCount * (config.ratio[d] / 100);
-                distributionDiff += Math.abs(actualCounts[d] - idealCount);
-            });
+        // 최종 페널티 합산
+        const currentPenalty = avgDiff + diversityPenalty;
 
-            // 4. 최종 하이브리드 페널티 점수 합산 
-            // 분포도 오차에 가중치(x10)를 부여하여 모든 난이도가 자연스럽게 섞이도록 유도
-            const currentPenalty = avgDiff + (distributionDiff * 10);
-
-            if (currentPenalty < lowestPenalty) {
-                lowestPenalty = currentPenalty;
-                bestSet = candidateSet;
-            }
+        if (currentPenalty < lowestPenalty) {
+            lowestPenalty = currentPenalty;
+            bestSet = candidateSet;
         }
     }
 
@@ -150,7 +139,7 @@ function drawProblems() {
     const finalShuffledSet = shuffleArray(bestSet);
     renderProblems(finalShuffledSet);
     
-    // 간결한 문구 출력 요구사항 반영
+    // 출력 메시지 처리 (선택한 옵션이 원래 'all'이었는지에 따라 다르게 표시)
     if (targetLevel === 'all') {
         messageArea.textContent = `${targetCount}개의 문제가 랜덤 추출되었습니다.`;
     } else {
