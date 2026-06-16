@@ -13,7 +13,7 @@ const DIFFICULTY_WEIGHTS = {
 const TARGET_AVERAGES = {
     'low':  1.5,  
     'mid':  3.0,  
-    'high': 5.0   
+    'high': 4.5   
 };
 
 // =====================================================================
