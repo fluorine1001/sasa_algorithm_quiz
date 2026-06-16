@@ -1,8 +1,8 @@
 // =====================================================================
-// ★ 사용자 설정 영역 (원하는 대로 수치 변경 가능)
+// ★ 사용자 설정 영역
 // =====================================================================
 
-// 1. 난이도별 계산 점수 (하=1점, 중=3점, 상=6점으로 처리)
+// 1. 난이도별 계산 점수
 const DIFFICULTY_WEIGHTS = {
     1: 1,  // 하
     2: 3,  // 중
@@ -10,11 +10,10 @@ const DIFFICULTY_WEIGHTS = {
 };
 
 // 2. low, mid, high 각각의 목표 평균 점수 설정
-// (위의 1, 3, 6점 기준으로 계산되는 세트의 목표 평균값입니다.)
 const TARGET_AVERAGES = {
-    'low':  1.5,  // '하' 선택 시 목표 평균 (예: 하가 대다수)
-    'mid':  3.0,  // '중' 선택 시 목표 평균 (예: 중 중심 또는 하/상 조합)
-    'high': 4.5   // '상' 선택 시 목표 평균 (예: 상이 대다수)
+    'low':  1.5,  
+    'mid':  3.0,  
+    'high': 5.0   
 };
 
 // =====================================================================
@@ -52,6 +51,33 @@ function shuffleArray(array) {
     return shuffled;
 }
 
+// [신규 함수] 중복 없는 제작자로만 문제 후보 세트를 구성하는 함수
+function getUniqueCreatorCandidate(problems, targetCount) {
+    // 1. 제작자별로 문제 그룹화
+    const groups = {};
+    problems.forEach(p => {
+        if (!groups[p.name]) groups[p.name] = [];
+        groups[p.name].push(p);
+    });
+    
+    const creators = Object.keys(groups);
+    
+    // 방어 로직: 유니크한 제작자 수가 요구한 문제 개수보다 적으면 후보 생성 불가
+    if (creators.length < targetCount) return null;
+    
+    // 2. 제작자 목록을 섞은 후 필요한 만큼(targetCount) 추출
+    const selectedCreators = shuffleArray(creators).slice(0, targetCount);
+    
+    // 3. 선별된 각 제작자의 문제 목록 중 무작위로 1개씩만 선택
+    const candidateSet = selectedCreators.map(creator => {
+        const creatorProblems = groups[creator];
+        const randomIndex = Math.floor(Math.random() * creatorProblems.length);
+        return creatorProblems[randomIndex];
+    });
+    
+    return candidateSet;
+}
+
 // 문제 추출 로직
 function drawProblems() {
     const selectedSection = sectionFilter.value;
@@ -65,33 +91,33 @@ function drawProblems() {
                problem.section === 0;
     });
 
-    if (filteredBySection.length < targetCount) {
+    // 중복 없는 제작자 검사 (방어 로직)
+    const uniqueCreatorsCount = new Set(filteredBySection.map(p => p.name)).size;
+    if (uniqueCreatorsCount < targetCount) {
         resultContainer.innerHTML = '';
-        messageArea.textContent = `조건에 맞는 문제가 부족합니다. (현재 ${filteredBySection.length}개 / 최소 ${targetCount}개 필요)`;
+        messageArea.textContent = `조건에 맞는 문제의 총 제작자 수(${uniqueCreatorsCount}명)가 목표 문제 셋 크기(${targetCount}개)보다 적어 중복 없는 세트를 만들 수 없습니다.`;
         return;
     }
 
     let bestSet = [];
     
     if (targetLevel === 'all') {
-        // 완전 랜덤 추출
-        bestSet = shuffleArray(filteredBySection).slice(0, targetCount);
+        // 중복 없는 제작자 조합으로 완전 랜덤 추출
+        bestSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
     } else {
-        // 설정된 가중치 기반 목표 평균 가져오기
         const targetAvg = TARGET_AVERAGES[targetLevel];
-
         let closestDifference = Infinity;
-        const MAX_ATTEMPTS = 300; // 정밀한 평균 매칭을 위해 탐색 횟수 상향
+        const MAX_ATTEMPTS = 300; 
 
         for (let i = 0; i < MAX_ATTEMPTS; i++) {
-            const candidateSet = shuffleArray(filteredBySection).slice(0, targetCount);
+            // 중복 없는 제작자 조합 1세트 생성
+            const candidateSet = getUniqueCreatorCandidate(filteredBySection, targetCount);
+            if (!candidateSet) break;
             
-            // [핵심 변경] 하=1, 중=3, 상=6 가중치를 적용하여 합산
+            // 가중치(1, 3, 6)를 적용하여 평균 계산
             const currentSum = candidateSet.reduce((sum, p) => sum + DIFFICULTY_WEIGHTS[p.difficulty], 0);
-            // 가중 평균 계산
             const currentAvg = currentSum / targetCount;
             
-            // 설정된 목표 평균과의 오차 계산
             const diff = Math.abs(currentAvg - targetAvg);
 
             if (diff < closestDifference) {
@@ -99,17 +125,17 @@ function drawProblems() {
                 bestSet = candidateSet;
             }
 
-            if (diff <= 0.05) break; // 오차가 거의 없다면 조기 종료
+            if (diff <= 0.05) break; 
         }
     }
 
-    // 화면 출력 전 최종 순서 무작위 섞기
+    // 화면 출력 전 최종 순서 무작위 섞기 (제작자 순서도 랜덤화)
     const finalShuffledSet = shuffleArray(bestSet);
 
     // 결과 렌더링
     renderProblems(finalShuffledSet);
     
-    // 안내 메시지용 최종 가중 평균 및 실제 개수 계산
+    // 안내 메시지용 계산
     const finalSum = finalShuffledSet.reduce((sum, p) => sum + DIFFICULTY_WEIGHTS[p.difficulty], 0);
     const finalAvg = (finalSum / targetCount).toFixed(2);
     
@@ -117,10 +143,10 @@ function drawProblems() {
     finalShuffledSet.forEach(p => finalCounts[p.difficulty]++);
 
     if (targetLevel === 'all') {
-        messageArea.textContent = `${targetCount}개의 문제가 랜덤 추출되었습니다. (가중 평균: ${finalAvg} / 하:${finalCounts[1]} 중:${finalCounts[2]} 상:${finalCounts[3]})`;
+        messageArea.textContent = `제작자 중복 없이 ${targetCount}개의 문제가 랜덤 추출되었습니다. (가중 평균: ${finalAvg} / 하:${finalCounts[1]} 중:${finalCounts[2]} 상:${finalCounts[3]})`;
     } else {
         const levelLabelMap = { 'low': '하', 'mid': '중', 'high': '상' };
-        messageArea.textContent = `[${levelLabelMap[targetLevel]}] 난이도 목표에 맞춰 ${targetCount}문제가 생성되었습니다. (세트 가중 평균: ${finalAvg} / 하:${finalCounts[1]} 중:${finalCounts[2]} 상:${finalCounts[3]})`;
+        messageArea.textContent = `[${levelLabelMap[targetLevel]}] 난이도 가중 평균에 맞춰 제작자 중복 없는 ${targetCount}문제가 생성되었습니다. (세트 가중 평균: ${finalAvg} / 하:${finalCounts[1]} 중:${finalCounts[2]} 상:${finalCounts[3]})`;
     }
 }
 
