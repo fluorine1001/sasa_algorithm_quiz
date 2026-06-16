@@ -2,19 +2,18 @@
 // ★ 시스템 핵심 설정 영역
 // =====================================================================
 
-// 1. 난이도별 점수 가중치 
+// 1. 난이도별 점수 가중치
 const DIFFICULTY_WEIGHTS = {
     1: 10,  // 하
     2: 25,  // 중
     3: 50   // 상
 };
 
-// 2. 모드별 목표 평균 점수 '범위' 
-// 고정된 평균이 아닌 범위 내에서 랜덤 지정되어, 매번 비율이 유동적으로 변합니다.
+// 2. 모드별 목표 평균 점수 범위 (low와 mid의 간격을 확실히 벌렸습니다)
 const SYSTEM_CONFIGS = {
-    'low':  { minAvg: 17, maxAvg: 22 }, 
-    'mid':  { minAvg: 25, maxAvg: 30 }, 
-    'high': { minAvg: 35, maxAvg: 40 }  
+    'low':  { minAvg: 13, maxAvg: 19 }, // 확실하게 낮은 점수대 유지
+    'mid':  { minAvg: 24, maxAvg: 30 }, // 중간 밸런스 점수대
+    'high': { minAvg: 38, maxAvg: 44 }  // 높은 점수대 (하가 가끔 섞일 수 있는 하한선 확보)
 };
 
 // =====================================================================
@@ -42,7 +41,7 @@ async function fetchProblems() {
     }
 }
 
-// 무작위 섞기 
+// 무작위 섞기
 function shuffleArray(array) {
     const shuffled = [...array];
     for (let i = shuffled.length - 1; i > 0; i--) {
@@ -84,7 +83,7 @@ function drawProblems() {
                problem.section === 0;
     });
 
-    // 방어 로직 (제작자 수 부족)
+    // 방어 로직
     const uniqueCreatorsCount = new Set(filteredBySection.map(p => p.name)).size;
     if (uniqueCreatorsCount < targetCount) {
         resultContainer.innerHTML = '';
@@ -92,14 +91,14 @@ function drawProblems() {
         return;
     }
 
-    // [신규] 랜덤 모드일 경우 low, mid, high 중 하나를 무작위로 선택하여 진행
+    // [요구사항 반영] 랜덤 선택 시 내부적으로 low/mid/high 중 하나를 무작위로 선택
     let activeLevel = targetLevel;
     if (activeLevel === 'all') {
         const levels = ['low', 'mid', 'high'];
         activeLevel = levels[Math.floor(Math.random() * levels.length)];
     }
 
-    // 범위 내에서 이번 회차의 목표 평균 점수를 랜덤으로 결정 (매번 비율이 달라지도록 유도)
+    // 범위 내에서 이번 회차의 목표 평균 점수를 랜덤 지정 (비율 비일정화)
     const config = SYSTEM_CONFIGS[activeLevel];
     const targetAvg = Math.random() * (config.maxAvg - config.minAvg) + config.minAvg;
 
@@ -122,12 +121,24 @@ function drawProblems() {
         // 1. 점수 오차 페널티
         const avgDiff = Math.abs(actualAvg - targetAvg);
 
-        // 2. 다양성 페널티 (특정 난이도가 0개일 경우 강한 페널티를 주어 '하, 중, 상'이 모두 섞이도록 강제)
-        const missingCount = [1, 2, 3].filter(d => actualCounts[d] === 0).length;
-        const diversityPenalty = targetCount >= 3 ? (missingCount * 10) : 0; 
+        // 2. 모드별 최적화된 조건 격리 페널티 (각 모드의 고유 개성을 보장)
+        let constraintPenalty = 0;
+        if (activeLevel === 'low') {
+            // 하와 중은 필수, 상은 없어도 됨 (점수가 높게 잡히면 자연스럽게 가끔 등장)
+            if (actualCounts[1] === 0) constraintPenalty += 30;
+            if (actualCounts[2] === 0) constraintPenalty += 20;
+        } else if (activeLevel === 'mid') {
+            // 중이 메인이되 하와 상이 무조건 골고루 섞여야 함
+            if (actualCounts[2] < 2) constraintPenalty += 30;
+            if (actualCounts[1] === 0) constraintPenalty += 20;
+            if (actualCounts[3] === 0) constraintPenalty += 20;
+        } else if (activeLevel === 'high') {
+            // 상과 중은 필수, 하는 없어도 됨 (점수가 낮게 잡히면 자연스럽게 가끔 등장)
+            if (actualCounts[3] === 0) constraintPenalty += 30;
+            if (actualCounts[2] === 0) constraintPenalty += 20;
+        }
 
-        // 최종 페널티 합산
-        const currentPenalty = avgDiff + diversityPenalty;
+        const currentPenalty = avgDiff + constraintPenalty;
 
         if (currentPenalty < lowestPenalty) {
             lowestPenalty = currentPenalty;
@@ -139,7 +150,7 @@ function drawProblems() {
     const finalShuffledSet = shuffleArray(bestSet);
     renderProblems(finalShuffledSet);
     
-    // 출력 메시지 처리 (선택한 옵션이 원래 'all'이었는지에 따라 다르게 표시)
+    // 메시지 출력
     if (targetLevel === 'all') {
         messageArea.textContent = `${targetCount}개의 문제가 랜덤 추출되었습니다.`;
     } else {
