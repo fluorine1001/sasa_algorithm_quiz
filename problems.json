@@ -1,12 +1,14 @@
 [
-  { "id": 1, "title": "두 수의 합 구하기", "section": 0, "difficulty": 1.5, "url": "https://example.com/1" },
-  { "id": 2, "title": "배열 역순으로 뒤집기", "section": 1, "difficulty": 3.0, "url": "https://example.com/2" },
-  { "id": 3, "title": "문자열 팰린드롬 판별", "section": 2, "difficulty": 3.5, "url": "https://example.com/3" },
-  { "id": 4, "title": "이진 탐색 트리 구현", "section": 1, "difficulty": 6.5, "url": "https://example.com/4" },
-  { "id": 5, "title": "해시 테이블 충돌 해결", "section": 2, "difficulty": 5.0, "url": "https://example.com/5" },
-  { "id": 6, "title": "다익스트라 최단 경로", "section": 0, "difficulty": 8.0, "url": "https://example.com/6" },
-  { "id": 7, "title": "동적 계획법: 배낭 문제", "section": 1, "difficulty": 8.5, "url": "https://example.com/7" },
-  { "id": 8, "title": "위상 정렬 알고리즘", "section": 2, "difficulty": 7.5, "url": "https://example.com/8" },
-  { "id": 9, "title": "BFS를 이용한 미로 찾기", "section": 0, "difficulty": 4.5, "url": "https://example.com/9" },
-  { "id": 10, "title": "정규표현식 매칭", "section": 1, "difficulty": 9.0, "url": "https://example.com/10" }
+  { "id": 1, "title": "두 수의 합 구하기", "section": 0, "difficulty": 1, "url": "https://example.com/1" },
+  { "id": 2, "title": "배열 역순으로 뒤집기", "section": 1, "difficulty": 1, "url": "https://example.com/2" },
+  { "id": 3, "title": "문자열 팰린드롬 판별", "section": 2, "difficulty": 1, "url": "https://example.com/3" },
+  { "id": 4, "title": "이진 탐색 트리 구현", "section": 1, "difficulty": 2, "url": "https://example.com/4" },
+  { "id": 5, "title": "해시 테이블 충돌 해결", "section": 2, "difficulty": 2, "url": "https://example.com/5" },
+  { "id": 6, "title": "다익스트라 최단 경로", "section": 0, "difficulty": 3, "url": "https://example.com/6" },
+  { "id": 7, "title": "동적 계획법: 배낭 문제", "section": 1, "difficulty": 3, "url": "https://example.com/7" },
+  { "id": 8, "title": "위상 정렬 알고리즘", "section": 2, "difficulty": 3, "url": "https://example.com/8" },
+  { "id": 9, "title": "BFS를 이용한 미로 찾기", "section": 0, "difficulty": 2, "url": "https://example.com/9" },
+  { "id": 10, "title": "정규표현식 매칭", "section": 1, "difficulty": 3, "url": "https://example.com/10" },
+  { "id": 11, "title": "스택과 큐의 기본 활용", "section": 0, "difficulty": 1, "url": "https://example.com/11" },
+  { "id": 12, "title": "KMP 문자열 매칭", "section": 2, "difficulty": 2, "url": "https://example.com/12" }
 ]
