@@ -10,7 +10,7 @@
     <div class="max-w-4xl mx-auto">
         <header class="text-center mb-10">
             <h1 class="text-3xl font-bold text-blue-600 mb-2">맞춤형 문제 추천 시스템</h1>
-            <p class="text-gray-500">분반, 목표 평균 난이도, 그리고 원하는 문제 개수를 선택해 보세요!</p>
+            <p class="text-gray-500">분반, 문제 셋 난이도, 그리고 원하는 문제 개수를 선택해 보세요!</p>
         </header>
 
         <div class="bg-white p-6 rounded-lg shadow-md mb-8 flex flex-col md:flex-row gap-4 items-end justify-between">
@@ -24,12 +24,12 @@
                     </select>
                 </div>
                 <div class="flex flex-col">
-                    <label for="difficultyFilter" class="text-sm font-semibold mb-1">목표 평균 난이도</label>
+                    <label for="difficultyFilter" class="text-sm font-semibold mb-1">문제 셋 난이도</label>
                     <select id="difficultyFilter" class="border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500">
-                        <option value="all">상관없음 (완전 랜덤)</option>
-                        <option value="1.5">평균 1.5 (하~중 위주)</option>
-                        <option value="2.0">평균 2.0 (골고루 섞임)</option>
-                        <option value="2.5">평균 2.5 (중~상 위주)</option>
+                        <option value="all">랜덤</option>
+                        <option value="1.5">하</option>
+                        <option value="2.0">중</option>
+                        <option value="2.5">상</option>
                     </select>
                 </div>
                 <div class="flex flex-col">
@@ -43,7 +43,7 @@
             </button>
         </div>
 
-        <div id="resultContainer" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div id="resultContainer" class="flex flex-col gap-4">
             </div>
         
         <div id="messageArea" class="text-center text-gray-500 mt-8 font-medium">
