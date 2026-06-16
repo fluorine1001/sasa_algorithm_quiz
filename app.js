@@ -1,19 +1,22 @@
 // =====================================================================
-// ★ 시스템 핵심 설정 영역
+// ★ 시스템 핵심 설정 영역 (확률형 멀티 시나리오)
 // =====================================================================
 
-// 1. 난이도별 점수 가중치
-const DIFFICULTY_WEIGHTS = {
-    1: 10,  // 하
-    2: 25,  // 중
-    3: 50   // 상
-};
-
-// 2. 모드별 목표 평균 점수 범위 (low와 mid의 간격을 확실히 벌렸습니다)
-const SYSTEM_CONFIGS = {
-    'low':  { minAvg: 13, maxAvg: 19 }, // 확실하게 낮은 점수대 유지
-    'mid':  { minAvg: 24, maxAvg: 30 }, // 중간 밸런스 점수대
-    'high': { minAvg: 38, maxAvg: 44 }  // 높은 점수대 (하가 가끔 섞일 수 있는 하한선 확보)
+// 각 모드를 선택했을 때 실행될 난이도 비율 시나리오들을 정의합니다.
+// weight(확률 가중치)에 따라 매번 다른 시나리오가 선택되어 난이도 비율이 일정하지 않고 유동적으로 바뀝니다.
+const LEVEL_SCENARIOS = {
+    'low': [
+        { weight: 55, ratio: { 1: 70, 2: 30, 3: 0 } },   // 하 중심 (55% 확률)
+        { weight: 45, ratio: { 1: 50, 2: 35, 3: 15 } }   // 상/중이 적극적으로 섞임 (45% 확률 -> '상' 등장 보장)
+    ],
+    'mid': [
+        { weight: 50, ratio: { 1: 25, 2: 55, 3: 20 } },   // 하가 살짝 더 많은 중간 (50% 확률)
+        { weight: 50, ratio: { 1: 20, 2: 55, 3: 25 } }   // 상이 살짝 더 많은 중간 (50% 확률)
+    ],
+    'high': [
+        { weight: 55, ratio: { 1: 0, 2: 30, 3: 70 } },   // 상 중심 (55% 확률)
+        { weight: 45, ratio: { 1: 15, 2: 35, 3: 50 } }   // 하/중이 적극적으로 섞임 (45% 확률 -> '하' 등장 보장)
+    ]
 };
 
 // =====================================================================
@@ -70,10 +73,23 @@ function getUniqueCreatorCandidate(problems, targetCount) {
     });
 }
 
+// 무작위 시나리오 선택 함수
+function getRandomScenario(level) {
+    const scenarios = LEVEL_SCENARIOS[level];
+    const totalWeight = scenarios.reduce((sum, s) => sum + s.weight, 0);
+    let random = Math.random() * totalWeight;
+    
+    for (const scenario of scenarios) {
+        random -= scenario.weight;
+        if (random <= 0) return scenario.ratio;
+    }
+    return scenarios[0].ratio;
+}
+
 // 문제 셋 생성 로직
 function drawProblems() {
     const selectedSection = sectionFilter.value;
-    const targetLevel = difficultyFilter.value;
+    const targetLevel = difficultyFilter.value; // 'all', 'low', 'mid', 'high'
     const targetCount = parseInt(countFilter.value, 10) || 6;
 
     // 1차 분반 필터링
@@ -91,16 +107,15 @@ function drawProblems() {
         return;
     }
 
-    // [요구사항 반영] 랜덤 선택 시 내부적으로 low/mid/high 중 하나를 무작위로 선택
+    // [요구사항 반영 3] '전체' 선택 시 내부적으로 low/mid/high 중 하나를 완전히 무작위로 선택
     let activeLevel = targetLevel;
     if (activeLevel === 'all') {
         const levels = ['low', 'mid', 'high'];
         activeLevel = levels[Math.floor(Math.random() * levels.length)];
     }
 
-    // 범위 내에서 이번 회차의 목표 평균 점수를 랜덤 지정 (비율 비일정화)
-    const config = SYSTEM_CONFIGS[activeLevel];
-    const targetAvg = Math.random() * (config.maxAvg - config.minAvg) + config.minAvg;
+    // 이번 회차에 적용할 난이도 비율 시나리오 확정 (비율 비일정화 요구사항 만족)
+    const targetRatio = getRandomScenario(activeLevel);
 
     let bestSet = [];
     let lowestPenalty = Infinity;
@@ -111,34 +126,14 @@ function drawProblems() {
         if (!candidateSet) break;
         
         const actualCounts = { 1: 0, 2: 0, 3: 0 };
-        let totalScore = 0;
-        candidateSet.forEach(p => {
-            actualCounts[p.difficulty]++;
-            totalScore += DIFFICULTY_WEIGHTS[p.difficulty];
-        });
-        const actualAvg = totalScore / targetCount;
+        candidateSet.forEach(p => actualCounts[p.difficulty]++);
         
-        // 1. 점수 오차 페널티
-        const avgDiff = Math.abs(actualAvg - targetAvg);
-
-        // 2. 모드별 최적화된 조건 격리 페널티 (각 모드의 고유 개성을 보장)
-        let constraintPenalty = 0;
-        if (activeLevel === 'low') {
-            // 하와 중은 필수, 상은 없어도 됨 (점수가 높게 잡히면 자연스럽게 가끔 등장)
-            if (actualCounts[1] === 0) constraintPenalty += 30;
-            if (actualCounts[2] === 0) constraintPenalty += 20;
-        } else if (activeLevel === 'mid') {
-            // 중이 메인이되 하와 상이 무조건 골고루 섞여야 함
-            if (actualCounts[2] < 2) constraintPenalty += 30;
-            if (actualCounts[1] === 0) constraintPenalty += 20;
-            if (actualCounts[3] === 0) constraintPenalty += 20;
-        } else if (activeLevel === 'high') {
-            // 상과 중은 필수, 하는 없어도 됨 (점수가 낮게 잡히면 자연스럽게 가끔 등장)
-            if (actualCounts[3] === 0) constraintPenalty += 30;
-            if (actualCounts[2] === 0) constraintPenalty += 20;
-        }
-
-        const currentPenalty = avgDiff + constraintPenalty;
+        // 정밀 정량 패널티 계산 (목표하는 이상적인 난이도별 개수와의 오차 비교)
+        let currentPenalty = 0;
+        [1, 2, 3].forEach(d => {
+            const idealCount = targetCount * (targetRatio[d] / 100);
+            currentPenalty += Math.abs(actualCounts[d] - idealCount);
+        });
 
         if (currentPenalty < lowestPenalty) {
             lowestPenalty = currentPenalty;
@@ -150,7 +145,7 @@ function drawProblems() {
     const finalShuffledSet = shuffleArray(bestSet);
     renderProblems(finalShuffledSet);
     
-    // 메시지 출력
+    // [요구사항 반영 2] '전체 포함' -> '전체' 기준으로 노출 문구 대응
     if (targetLevel === 'all') {
         messageArea.textContent = `${targetCount}개의 문제가 랜덤 추출되었습니다.`;
     } else {
