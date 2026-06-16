@@ -4,6 +4,7 @@ let allProblems = [];
 // DOM 요소
 const sectionFilter = document.getElementById('sectionFilter');
 const difficultyFilter = document.getElementById('difficultyFilter');
+const countFilter = document.getElementById('countFilter');
 const drawBtn = document.getElementById('drawBtn');
 const resultContainer = document.getElementById('resultContainer');
 const messageArea = document.getElementById('messageArea');
@@ -30,10 +31,12 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 3. 문제 추출 로직 (평균 난이도 근사치 탐색)
+// 3. 문제 추출 로직 (평균 난이도 및 지정된 개수 근사치 탐색)
 function drawProblems() {
     const selectedSection = sectionFilter.value;
     const targetAvg = difficultyFilter.value;
+    // 사용자가 입력한 개수 가져오기 (값이 없거나 이상하면 기본값 6 설정)
+    const targetCount = parseInt(countFilter.value, 10) || 6;
 
     // 1단계: 분반 기준으로만 1차 필터링
     const filteredBySection = allProblems.filter(problem => {
@@ -42,18 +45,18 @@ function drawProblems() {
                problem.section === 0;
     });
 
-    // 방어 로직: 해당 분반 문제가 6개 미만이면 즉시 종료
-    if (filteredBySection.length < 6) {
+    // 방어 로직: 해당 분반 문제가 사용자가 원하는 개수보다 적으면 즉시 종료
+    if (filteredBySection.length < targetCount) {
         resultContainer.innerHTML = '';
-        messageArea.textContent = `조건에 맞는 문제가 부족합니다. (현재 ${filteredBySection.length}개 / 최소 6개 필요)`;
+        messageArea.textContent = `조건에 맞는 문제가 부족합니다. (현재 ${filteredBySection.length}개 / 최소 ${targetCount}개 필요)`;
         return;
     }
 
     let bestSet = [];
     
     if (targetAvg === 'all') {
-        // 완전 랜덤인 경우 그냥 섞어서 6개 추출
-        bestSet = shuffleArray(filteredBySection).slice(0, 6);
+        // 완전 랜덤인 경우 그냥 섞어서 입력된 개수만큼 추출
+        bestSet = shuffleArray(filteredBySection).slice(0, targetCount);
     } else {
         // 목표 평균 난이도에 맞추기 위한 반복 탐색
         const targetNumber = Number(targetAvg);
@@ -61,11 +64,12 @@ function drawProblems() {
         const MAX_ATTEMPTS = 100; // 최대 100번 탐색
 
         for (let i = 0; i < MAX_ATTEMPTS; i++) {
-            const candidateSet = shuffleArray(filteredBySection).slice(0, 6);
+            // 입력된 개수(targetCount)만큼 잘라서 세트 구성
+            const candidateSet = shuffleArray(filteredBySection).slice(0, targetCount);
             
-            // 뽑힌 6개의 평균 난이도 계산
+            // 뽑힌 문제들의 평균 난이도 계산
             const currentSum = candidateSet.reduce((sum, p) => sum + p.difficulty, 0);
-            const currentAvg = currentSum / 6;
+            const currentAvg = currentSum / targetCount;
             
             // 목표 평균과의 차이 계산 (절댓값)
             const diff = Math.abs(currentAvg - targetNumber);
@@ -86,12 +90,12 @@ function drawProblems() {
     
     // 최종 뽑힌 문제들의 실제 평균 계산하여 메시지 출력
     const finalSum = bestSet.reduce((sum, p) => sum + p.difficulty, 0);
-    const finalAvg = (finalSum / 6).toFixed(2);
+    const finalAvg = (finalSum / targetCount).toFixed(2);
 
     if (targetAvg === 'all') {
-        messageArea.textContent = `6개의 문제가 무작위로 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
+        messageArea.textContent = `${targetCount}개의 문제가 무작위로 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
     } else {
-        messageArea.textContent = `목표 평균(${targetAvg})에 맞춰 최적의 문제들이 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
+        messageArea.textContent = `목표 평균(${targetAvg})에 맞춰 ${targetCount}개의 최적 문제가 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
     }
 }
 
