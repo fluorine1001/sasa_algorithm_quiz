@@ -31,7 +31,7 @@ function shuffleArray(array) {
     return shuffled;
 }
 
-// 3. 문제 추출 로직 (평균 난이도 및 지정된 개수 근사치 탐색)
+// 3. 문제 추출 로직
 function drawProblems() {
     const selectedSection = sectionFilter.value;
     const targetAvg = difficultyFilter.value;
@@ -57,7 +57,7 @@ function drawProblems() {
         // 완전 랜덤 추출
         bestSet = shuffleArray(filteredBySection).slice(0, targetCount);
     } else {
-        // 목표 평균 난이도에 맞추기 위한 반복 탐색
+        // 문제 셋 난이도에 맞추기 위한 반복 탐색
         const targetNumber = Number(targetAvg);
         let closestDifference = Infinity;
         const MAX_ATTEMPTS = 100;
@@ -78,21 +78,26 @@ function drawProblems() {
         }
     }
 
+    // 최종 나열 순서를 완벽하게 무작위로 만들기 위해 한 번 더 섞음
+    const finalShuffledSet = shuffleArray(bestSet);
+
     // 결과 렌더링
-    renderProblems(bestSet);
+    renderProblems(finalShuffledSet);
     
     // 최종 평균 계산
-    const finalSum = bestSet.reduce((sum, p) => sum + p.difficulty, 0);
+    const finalSum = finalShuffledSet.reduce((sum, p) => sum + p.difficulty, 0);
     const finalAvg = (finalSum / targetCount).toFixed(2);
 
+    // 메시지 출력
     if (targetAvg === 'all') {
-        messageArea.textContent = `${targetCount}개의 문제가 무작위로 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
+        messageArea.textContent = `${targetCount}개의 문제가 랜덤으로 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
     } else {
-        messageArea.textContent = `목표 평균(${targetAvg})에 맞춰 ${targetCount}개의 최적 문제가 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
+        const diffLabelMap = { '1.5': '하', '2.0': '중', '2.5': '상' };
+        messageArea.textContent = `문제 셋 난이도 [${diffLabelMap[targetAvg]}]에 맞춰 ${targetCount}개의 최적 문제가 추출되었습니다. (세트 실제 평균: ${finalAvg})`;
     }
 }
 
-// 4. 화면 출력 함수 (이름 추가 및 제목 생략 처리 적용)
+// 4. 화면 출력 함수
 function renderProblems(problems) {
     const diffText = { 1: '하', 2: '중', 3: '상' };
     resultContainer.innerHTML = ''; // 기존 화면 초기화
