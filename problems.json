@@ -16,7 +16,7 @@
   { "id": 15, "name": "김연준", "title": "뉴런은 인공지능 동아리", "section": 2, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3506" },
   { "id": 16, "name": "정영한", "title": "대칭 만들기", "section": 1, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3508" },
   { "id": 17, "name": "이홍균", "title": "사수를 잘못 만난 인턴", "section": 1, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3512" },
-  { "id": 18, "name": "김민기", "title": "Re:제로부터 시작하는 효재의 구원", "section": 1, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3513" },
+  { "id": 18, "name": "김민기", "title": "Re:제로부터 시작하는 효재의 구원", "section": 2, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3513" },
   { "id": 19, "name": "오은", "title": "비 오는 날의 단판승부", "section": 2, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3514" },
   { "id": 20, "name": "고은규", "title": "배열 감시자", "section": 1, "difficulty": 3, "url": "https://ps.sasa.hs.kr/problem.php?id=3535" },
   { "id": 21, "name": "이태경", "title": "세종이는 진법을 싫어해", "section": 1, "difficulty": 1, "url": "https://ps.sasa.hs.kr/problem.php?id=3503" },
